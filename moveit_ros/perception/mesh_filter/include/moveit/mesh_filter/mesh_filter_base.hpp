@@ -38,8 +38,8 @@
 
 #include <map>
 #include <moveit/macros/class_forward.h>
-#include <moveit/mesh_filter/gl_renderer.h>
-#include <moveit/mesh_filter/sensor_model.h>
+#include <moveit/mesh_filter/gl_renderer.hpp>
+#include <moveit/mesh_filter/sensor_model.hpp>
 #include <boost/function.hpp>
 #include <boost/thread/mutex.hpp>
 #include <Eigen/Geometry>  // for Isometry3d

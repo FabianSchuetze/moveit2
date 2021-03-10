@@ -35,7 +35,7 @@
 /* Author: Jon Binney, Ioan Sucan */
 
 #include <cmath>
-#include <moveit/pointcloud_octomap_updater/pointcloud_octomap_updater.h>
+#include <moveit/pointcloud_octomap_updater/pointcloud_octomap_updater.hpp>
 #include <moveit/occupancy_map_monitor/occupancy_map_monitor.h>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.h>
 #include <tf2/LinearMath/Vector3.h>

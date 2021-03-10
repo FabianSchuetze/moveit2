@@ -1,7 +1,7 @@
 /*********************************************************************
  * Software License Agreement (BSD License)
  *
- *  Copyright (c) 2011, Willow Garage, Inc.
+ *  Copyright (c) 2013, Willow Garage, Inc.
  *  All rights reserved.
  *
  *  Redistribution and use in source and binary forms, with or without
@@ -32,73 +32,78 @@
  *  POSSIBILITY OF SUCH DAMAGE.
  *********************************************************************/
 
-/* Author: Jon Binney, Ioan Sucan */
+/* Author: Ioan Sucan */
 
 #pragma once
 
 #include <rclcpp/rclcpp.hpp>
-#include <tf2_ros/transform_listener.h>
-#include <tf2_ros/message_filter.h>
-#include <message_filters/subscriber.h>
-#include <sensor_msgs/msg/point_cloud2.hpp>
+#include <tf2_ros/buffer.h>
 #include <moveit/occupancy_map_monitor/occupancy_map_updater.h>
-#include <moveit/point_containment_filter/shape_mask.h>
-
+#include <moveit/mesh_filter/mesh_filter.hpp>
+#include <moveit/mesh_filter/stereo_camera_model.hpp>
+#include <moveit/lazy_free_space_updater/lazy_free_space_updater.hpp>
+#include <image_transport/image_transport.hpp>
 #include <memory>
 
 namespace occupancy_map_monitor
 {
-class PointCloudOctomapUpdater : public OccupancyMapUpdater
+class DepthImageOctomapUpdater : public OccupancyMapUpdater
 {
 public:
-  PointCloudOctomapUpdater();
-  ~PointCloudOctomapUpdater() override;
+  DepthImageOctomapUpdater();
+  ~DepthImageOctomapUpdater() override;
 
   bool setParams(const std::string& name_space) override;
-
   bool initialize(const rclcpp::Node::SharedPtr& node) override;
   void start() override;
   void stop() override;
   ShapeHandle excludeShape(const shapes::ShapeConstPtr& shape) override;
   void forgetShape(ShapeHandle handle) override;
 
-protected:
-  virtual void updateMask(const sensor_msgs::msg::PointCloud2& cloud, const Eigen::Vector3d& sensor_origin,
-                          std::vector<int>& mask);
-
 private:
-  bool getShapeTransform(ShapeHandle h, Eigen::Isometry3d& transform) const;
-  void cloudMsgCallback(const sensor_msgs::msg::PointCloud2::ConstSharedPtr& cloud_msg);
+  void depthImageCallback(const sensor_msgs::msg::Image::ConstSharedPtr& depth_msg,
+                          const sensor_msgs::msg::CameraInfo::ConstSharedPtr& info_msg);
+  bool getShapeTransform(mesh_filter::MeshHandle h, Eigen::Isometry3d& transform) const;
   void stopHelper();
 
-  // TODO: Enable private node for publishing filtered point cloud
-  // ros::NodeHandle root_nh_;
-  // ros::NodeHandle private_nh_;
   rclcpp::Node::SharedPtr node_;
-
   std::shared_ptr<tf2_ros::Buffer> tf_buffer_;
-  std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
+  std::unique_ptr<image_transport::ImageTransport> input_depth_transport_;
+  std::unique_ptr<image_transport::ImageTransport> model_depth_transport_;
+  std::unique_ptr<image_transport::ImageTransport> filtered_depth_transport_;
+  std::unique_ptr<image_transport::ImageTransport> filtered_label_transport_;
+
+  image_transport::CameraSubscriber sub_depth_image_;
+  image_transport::CameraPublisher pub_model_depth_image_;
+  image_transport::CameraPublisher pub_filtered_depth_image_;
+  image_transport::CameraPublisher pub_filtered_label_image_;
 
   rclcpp::Time last_update_time_;
 
-  /* params */
-  std::string point_cloud_topic_;
-  double scale_;
-  double padding_;
-  double max_range_;
-  unsigned int point_subsample_;
-  double max_update_rate_;
   std::string filtered_cloud_topic_;
-  rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr filtered_cloud_publisher_;
+  std::string sensor_type_;
+  std::string image_topic_;
+  std::size_t queue_size_;
+  double near_clipping_plane_distance_;
+  double far_clipping_plane_distance_;
+  double shadow_threshold_;
+  double padding_scale_;
+  double padding_offset_;
+  double max_update_rate_;
+  unsigned int skip_vertical_pixels_;
+  unsigned int skip_horizontal_pixels_;
 
-  message_filters::Subscriber<sensor_msgs::msg::PointCloud2>* point_cloud_subscriber_;
-  tf2_ros::MessageFilter<sensor_msgs::msg::PointCloud2>* point_cloud_filter_;
+  unsigned int image_callback_count_;
+  double average_callback_dt_;
+  unsigned int good_tf_;
+  unsigned int failed_tf_;
 
-  /* used to store all cells in the map which a given ray passes through during raycasting.
-     we cache this here because it dynamically pre-allocates a lot of memory in its contsructor */
-  octomap::KeyRay key_ray_;
+  std::unique_ptr<mesh_filter::MeshFilter<mesh_filter::StereoCameraModel> > mesh_filter_;
+  std::unique_ptr<LazyFreeSpaceUpdater> free_space_updater_;
 
-  std::unique_ptr<point_containment_filter::ShapeMask> shape_mask_;
-  std::vector<int> mask_;
+  std::vector<float> x_cache_, y_cache_;
+  double inv_fx_, inv_fy_, K0_, K2_, K4_, K5_;
+  std::vector<unsigned int> filtered_labels_;
+  rclcpp::Time last_depth_callback_start_;
 };
 }  // namespace occupancy_map_monitor

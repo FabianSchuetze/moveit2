@@ -42,7 +42,7 @@
 #endif
 #include <GL/glut.h>
 #include <GL/freeglut.h>
-#include <moveit/mesh_filter/gl_renderer.h>
+#include <moveit/mesh_filter/gl_renderer.hpp>
 #include <sstream>
 #include <fstream>
 #include <stdexcept>
